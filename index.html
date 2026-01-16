@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Janus ID Sniper</title>
+    <style>
+        :root {
+            --bg-color: #0d0e12;
+            --card-bg: #15171e;
+            --primary: #6366f1; /* Indigo/Purple similar to SellAuth */
+            --primary-hover: #4f46e5;
+            --text-main: #ffffff;
+            --text-muted: #9ca3af;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(to right, #6366f1, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        input[type="text"], input[type="password"], input[type="number"] {
+            width: 100%;
+            background-color: #1f222b;
+            border: 1px solid #2d3039;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box; /* Fix padding issues */
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .row {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .col {
+            flex: 1;
+        }
+
+        button {
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 1rem;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:disabled {
+            background-color: #3730a3;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .log-container {
+            margin-top: 2rem;
+            background-color: #000;
+            border-radius: 8px;
+            padding: 1rem;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            border: 1px solid #2d3039;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 2px;
+        }
+
+        .status-avail { color: var(--success); }
+        .status-taken { color: var(--danger); }
+        .status-error { color: var(--warning); }
+        
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #15171e; }
+        ::-webkit-scrollbar-thumb { background: #2d3039; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="logo">Janus Sniper</div>
+        
+        <div class="card">
+            <div class="form-group">
+                <label for="token">User Token (Required)</label>
+                <input type="password" id="token" placeholder="Enter your Discord User Token">
+            </div>
+
+            <div class="row">
+                <div class="col form-group">
+                    <label for="mandatory">Mandatory String (e.g. "nw")</label>
+                    <input type="text" id="mandatory" placeholder="Optional (e.g. ab)">
+                </div>
+                <div class="col form-group">
+                    <label for="length">Max Length (<= 4)</label>
+                    <input type="number" id="length" value="4" min="2" max="4">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="delay">Delay (ms) - Recommended: 1500+</label>
+                <input type="number" id="delay" value="2000">
+            </div>
+
+            <button id="startBtn" onclick="toggleChecker()">Start Checking</button>
+            
+            <div class="stats">
+                <span id="stat-checked">Checked: 0</span>
+                <span id="stat-valid">Found: 0</span>
+                <span id="stat-errors">Errors: 0</span>
+            </div>
+
+            <div class="log-container" id="logBox">
+                <div style="color: #6366f1;">[System] Ready. Waiting for input...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isRunning = false;
+        let checkedCount = 0;
+        let validCount = 0;
+        let errorCount = 0;
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789._'; // Valid characters
+
+        function log(msg, type = 'normal') {
+            const box = document.getElementById('logBox');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            const time = new Date().toLocaleTimeString('en-US', {hour12: false});
+            
+            if(type === 'success') entry.classList.add('status-avail');
+            else if(type === 'taken') entry.classList.add('status-taken');
+            else if(type === 'error') entry.classList.add('status-error');
+            else entry.style.color = '#9ca3af';
+
+            entry.innerText = `[${time}] ${msg}`;
+            box.prepend(entry);
+        }
+
+        function updateStats() {
+            document.getElementById('stat-checked').innerText = `Checked: ${checkedCount}`;
+            document.getElementById('stat-valid').innerText = `Found: ${validCount}`;
+            document.getElementById('stat-errors').innerText = `Errors: ${errorCount}`;
+        }
+
+        function generateUsername(maxLength, mandatoryStr) {
+            // If mandatory string is longer than max length, return it directly (or handle error)
+            if (mandatoryStr.length >= maxLength) return mandatoryStr.substring(0, maxLength);
+
+            const remainingLen = maxLength - mandatoryStr.length;
+            let randomPart = '';
+            
+            for (let i = 0; i < remainingLen; i++) {
+                randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+
+            // Randomly position the mandatory string
+            // 0 = start, 1 = middle/end etc.
+            // Simplified logic: insert mandatory string at a random valid index
+            // e.g. length 4, mandatory "nw" (len 2). remaining 2.
+            // Possibilities: "nw"XX, X"nw"X, XX"nw"
+            
+            const positions = remainingLen + 1; // +1 because we can place it at the very end
+            const insertPos = Math.floor(Math.random() * positions);
+            
+            const part1 = randomPart.substring(0, insertPos);
+            const part2 = randomPart.substring(insertPos);
+            
+            return part1 + mandatoryStr + part2;
+        }
+
+        async function checkUsername(username, token) {
+            // Note: This endpoint checks availability for changing username.
+            // POST https://discord.com/api/v9/users/@me/pomelo-attempt
+            // Body: { "username": "xxx" }
+            // This is more reliable for checking if a name is FREE than just checking profile existence.
+            
+            try {
+                const response = await fetch('https://discord.com/api/v9/users/@me/pomelo-attempt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token
+                    },
+                    body: JSON.stringify({ username: username })
+                });
+
+                if (response.status === 429) {
+                    return { status: 'rate_limit' };
+                }
+
+                const data = await response.json();
+                
+                // If data.taken is false, the username is available
+                if (data.taken === false) {
+                    return { status: 'available' };
+                } else {
+                    return { status: 'taken' };
+                }
+
+            } catch (e) {
+                // If CORS fails, fallback to profile check GET request
+                // This is less accurate for "availability" (banned users etc) but works for existence
+                try {
+                     // Fallback: Check if user exists via profile get
+                     // This only tells us if a user currently HOLDS the name, not if it's claimable.
+                     // But without CORS proxy for POST, GET is sometimes easier.
+                     return { status: 'error', msg: 'CORS/Net Error' };
+                } catch (e2) {
+                     return { status: 'error', msg: e.message };
+                }
+            }
+        }
+
+        async function loop() {
+            const token = document.getElementById('token').value;
+            const mandatory = document.getElementById('mandatory').value.trim();
+            const maxLength = parseInt(document.getElementById('length').value);
+            const delay = parseInt(document.getElementById('delay').value);
+
+            if (!token) {
+                log("Error: Token is required!", 'error');
+                toggleChecker();
+                return;
+            }
+
+            while (isRunning) {
+                const username = generateUsername(maxLength, mandatory);
+                
+                // Call API
+                const result = await checkUsername(username, token);
+                
+                checkedCount++;
+
+                if (result.status === 'available') {
+                    validCount++;
+                    log(`AVAILABLE: ${username}`, 'success');
+                } else if (result.status === 'taken') {
+                    log(`Taken: ${username}`, 'taken');
+                } else if (result.status === 'rate_limit') {
+                    errorCount++;
+                    log(`Rate Limited! Pausing for 5s...`, 'error');
+                    await new Promise(r => setTimeout(r, 5000));
+                } else {
+                    errorCount++;
+                    log(`Error: ${result.msg || 'Unknown'}`, 'error');
+                }
+
+                updateStats();
+                
+                // Wait for delay
+                await new Promise(r => setTimeout(r, delay));
+            }
+        }
+
+        function toggleChecker() {
+            const btn = document.getElementById('startBtn');
+            if (isRunning) {
+                isRunning = false;
+                btn.innerText = "Start Checking";
+                btn.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--primary');
+                log("Stopped.", 'normal');
+            } else {
+                isRunning = true;
+                btn.innerText = "Stop Checking";
+                btn.style.backgroundColor = "#ef4444"; // Red for stop
+                log("Starting scanner...", 'normal');
+                loop();
+            }
+        }
+    </script>
+</body>
+</html>
